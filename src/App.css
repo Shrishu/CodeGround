@@ -1,0 +1,175 @@
+.HomePageWrapper{
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: darkgrey;
+}
+
+
+.formwrapper{
+  background:#545454;
+  padding: 20px;
+  border-radius: 10px;
+  width: 400px;
+  max-width:90%;
+}
+
+footer{
+  position:fixed;
+  bottom:0;
+
+}
+
+footer a{
+  color:#4aee88;
+}
+
+.inputGroup{
+  display: flex;
+  flex-direction: column;
+}
+
+.mainLabel{
+  margin-bottom: 20px;
+  margin-top: 0;
+}
+.homePageLogo{
+  height:100px;
+  margin-bottom: 30px;
+  margin-left: 50px;
+}
+
+.inputBox{
+  padding: 10px;
+  border-radius: 5px;
+  outline: none;
+  border: none;
+  margin-bottom: 10px;
+  background: #eee;
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.btn{
+  border: none;
+  padding: 10px;
+  border-radius: 5px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.3s ease-in-out;
+}
+
+
+.joinBtn,.leavebtn{
+  background: #ffbb22;
+  width: 100px;
+  margin-left: auto;
+}
+
+
+.joinBtn:hover,.leavebtn:hover{
+  background: #c18d14;
+}
+
+
+.createInfo{
+ 
+  margin:0 auto;
+  margin-top: 20px;
+}
+
+
+.createNewBtn{
+  color:#c18d14;
+  text-decoration: none;
+  border-bottom: 1px solid #cbb175;
+  transition: all 0.3s ease-in-out;
+}
+
+.createNewBtn:hover{
+  color: #c18d14;
+  border-color: #ffbb22;
+}
+
+.mainwrap{
+  display:grid;
+  grid-template-columns: 230px 1fr;
+
+}
+
+.aside{
+  background: #545454;
+  padding: 16px;
+  color:darkgray;
+  display: flex;
+  
+  flex-direction: column;
+}
+
+.asideInner{
+  flex:1;
+}
+
+
+.clientsList{
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap:20px;
+}
+
+
+.client{
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  font-weight: bold;
+}
+
+.userName{
+  margin-top: 10px;
+}
+
+.logo{
+  border-bottom: 1px solid #424242;
+  padding-bottom: 10px;
+}
+
+.logoImage{
+   height: 80px;
+}
+
+.leavebtn{
+  width: 100%;
+  margin-top: 20px;
+}
+
+.CodeMirror {
+  height: 60vh; /* 60% of the visible screen height */
+  font-size: 15px;
+  line-height: 1.6;
+  padding-top: 20px;
+}
+
+.editorwrap {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+
+.run-btn {
+  background-color: #00c853;
+  color: white;
+  padding: 0.5rem 1rem;
+  border: none;
+  font-size: 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-bottom: 0.5rem;
+}
+.run-btn:hover {
+  background-color: #00b342;
+}
