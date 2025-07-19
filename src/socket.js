@@ -2,7 +2,7 @@ import {io} from 'socket.io-client';
 
 export const initSocket=async()=>{
     const options={
-        'force new connection':true,
+        // Removed: 'force new connection':true, as it causes repeated connections.
         reconnectionAttempt:'Infinity',
         timeout:10000,
         transports:['websocket'],
