@@ -57,77 +57,128 @@ const EditorPage = () => {
     return newId;
   });
 
+  // Define handleErrors here so it's accessible to socket.on calls
+  const handleErrors = React.useCallback((e) => { // Use useCallback to ensure stability
+    console.error('Socket error:', e);
+    toast.error('Socket connection failed');
+    navigate('/');
+  }, [navigate]); // navigate is stable, so handleErrors is stable
+
+
+  // Effect for Socket.IO initialization and event listeners
   useEffect(() => {
-    const init = async () => {
-      socketRef.current = await initSocket();
+    // Only initialize socket if it hasn't been initialized yet
+    // This is crucial for preventing multiple connections
+    if (!socketRef.current) {
+        console.log('Attempting to initialize socket...');
+        const init = async () => {
+            socketRef.current = await initSocket();
+            console.log('Socket initialized:', socketRef.current.id);
 
-      socketRef.current.on('connect_error', handleErrors);
-      socketRef.current.on('connect_failed', handleErrors);
+            socketRef.current.on('connect_error', handleErrors);
+            socketRef.current.on('connect_failed', handleErrors);
 
-      function handleErrors(e) {
-        console.error('Socket error:', e);
-        toast.error('Socket connection failed');
-        navigate('/');
-      }
+            // Emit JOIN action with room details
+            socketRef.current.emit(ACTIONS.JOIN, {
+                roomId,
+                username: location.state?.username,
+                userId,
+            });
 
-      socketRef.current.emit(ACTIONS.JOIN, {
-        roomId,
-        username: location.state?.username,
-        userId,
-      });
+            // Listener for when other clients join the room
+            socketRef.current.on(ACTIONS.JOINED, ({ clients, username, socketId }) => {
+                if (username !== location.state?.username) {
+                    toast.success(`${username} joined`);
+                }
+                setClients(clients.filter((c) => c.userId));
+            });
 
-      socketRef.current.on(ACTIONS.JOINED, ({ clients, username, socketId }) => {
-        if (username !== location.state?.username) {
-          toast.success(`${username} joined`);
-        }
+            // Listener for when a client receives the full room state on joining
+            socketRef.current.on(ACTIONS.SYNC_ALL_CODE, ({ code, language, userInput, output }) => {
+                console.log('Received full sync:', { code, language, userInput, output });
+                if (code !== null) setCode(code);
+                if (language !== null) setLanguage(language);
+                if (userInput !== null) setUserInput(userInput);
+                if (output !== null) setOutput(output);
+            });
 
-        const filtered = clients.filter((c) => c.userId);
-        const uniqueByUserId = Array.from(
-          new Map(filtered.map((c) => [c.userId, c])).values()
-        );
-        setClients(uniqueByUserId);
+            // Listener for code changes from other clients
+            socketRef.current.on(ACTIONS.CODE_CHANGE, ({ code: incomingCode }) => {
+                // Only update if the incoming code is different to avoid unnecessary re-renders
+                if (incomingCode !== null && incomingCode !== code) {
+                    setCode(incomingCode);
+                }
+            });
 
-        socketRef.current.emit(ACTIONS.SYNC_CODE, {
-          code,
-          socketId,
-        });
-      });
+            // Listener for language changes from other clients
+            socketRef.current.on(ACTIONS.LANGUAGE_CHANGE, ({ language: incomingLanguage }) => {
+                if (incomingLanguage !== null && incomingLanguage !== language) {
+                    setLanguage(incomingLanguage);
+                }
+            });
 
-      socketRef.current.on(ACTIONS.DISCONNECTED, ({ socketId, username }) => {
-        toast.success(`${username} left the room`);
-        setClients((prev) => prev.filter((c) => c.socketId !== socketId));
-      });
-    };
+            // Listener for input box changes from other clients
+            socketRef.current.on(ACTIONS.INPUT_CHANGE, ({ userInput: incomingUserInput }) => {
+                if (incomingUserInput !== null && incomingUserInput !== userInput) {
+                    setUserInput(incomingUserInput);
+                }
+            });
 
-    init();
+            // Listener for output box changes from other clients
+            socketRef.current.on(ACTIONS.OUTPUT_CHANGE, ({ output: incomingOutput }) => {
+                if (incomingOutput !== null && incomingOutput !== output) {
+                    setOutput(incomingOutput);
+                }
+            });
 
+            // Listener for client disconnection
+            socketRef.current.on(ACTIONS.DISCONNECTED, ({ socketId, username }) => {
+                toast.success(`${username} left the room`);
+                setClients((prev) => prev.filter((c) => c.socketId !== socketId));
+            });
+        };
+
+        init();
+    }
+
+
+    // Cleanup function: disconnect socket and remove listeners when component unmounts
+    // This is vital for preventing duplicate listeners and managing connections
     return () => {
       if (socketRef.current) {
+        console.log('Disconnecting socket and cleaning up listeners.');
         socketRef.current.disconnect();
+        socketRef.current.off('connect_error', handleErrors);
+        socketRef.current.off('connect_failed', handleErrors);
         socketRef.current.off(ACTIONS.JOINED);
+        socketRef.current.off(ACTIONS.SYNC_ALL_CODE);
+        socketRef.current.off(ACTIONS.CODE_CHANGE);
+        socketRef.current.off(ACTIONS.LANGUAGE_CHANGE);
+        socketRef.current.off(ACTIONS.INPUT_CHANGE);
+        socketRef.current.off(ACTIONS.OUTPUT_CHANGE);
         socketRef.current.off(ACTIONS.DISCONNECTED);
+        socketRef.current = null; // Set ref to null after disconnecting
       }
     };
-  }, [roomId, location.state?.username]);
+    // Dependencies: Only include values that, if they change, *truly* require a re-initialization of the socket.
+    // Ensure all functions passed as dependencies are wrapped in useCallback or are inherently stable.
+  }, [roomId, location.state?.username, userId, navigate, handleErrors]);
 
-  useEffect(() => {
-    if (!socketRef.current) return;
 
-    const handleCodeChange = ({ code: incomingCode }) => {
-      if (incomingCode !== null && incomingCode !== code) {
-        setCode(incomingCode);
-      }
-    };
+  // Handlers for user interactions
 
-    socketRef.current.on(ACTIONS.CODE_CHANGE, handleCodeChange);
-
-    return () => {
-      socketRef.current.off(ACTIONS.CODE_CHANGE, handleCodeChange);
-    };
-  }, [code]);
-
+  // Handle language selection change and emit to others
   const handleLanguageChange = (e) => {
-    setLanguage(e.target.value);
+    const newLanguage = e.target.value;
+    setLanguage(newLanguage);
+    socketRef.current?.emit(ACTIONS.LANGUAGE_CHANGE, { roomId, language: newLanguage });
+  };
+
+  // Handle input box change and emit to others
+  const handleUserInput = (e) => {
+    const newUserInput = e.target.value;
+    setUserInput(newUserInput);
+    socketRef.current?.emit(ACTIONS.INPUT_CHANGE, { roomId, userInput: newUserInput });
   };
 
   const copyRoomId = async () => {
@@ -143,7 +194,7 @@ const EditorPage = () => {
     navigate('/');
   };
 
-  // Resize sidebar
+  // Resize sidebar (existing functionality)
   useEffect(() => {
     const handleMouseMove = (e) => {
       if (!isResizing.current) return;
@@ -166,6 +217,7 @@ const EditorPage = () => {
     };
   }, []);
 
+  // Run code functionality
   const runCode = async () => {
     if (!code.trim()) {
       toast.error('No code to run!');
@@ -173,18 +225,21 @@ const EditorPage = () => {
     }
 
     const { language: jdLang, versionIndex } = languageMap[language];
-    setOutput('Running code...');
+    setOutput('Running code...'); // Set output immediately
+    socketRef.current?.emit(ACTIONS.OUTPUT_CHANGE, { roomId, output: 'Running code...' }); // Sync "Running..." state
 
     try {
-      const { data } = await axios.post('http://localhost:5000/run', {
+      const { data } = await axios.post(`${process.env.REACT_APP_BACKEND_URL}/run`, {
         script: code,
         stdin: userInput,
         language: jdLang,
         versionIndex,
+        roomId: roomId // Pass roomId to backend to update shared output state
       });
 
       const resultOutput = data.output?.trim() || '';
       setOutput(resultOutput);
+      // Backend will now handle broadcasting OUTPUT_CHANGE, so no explicit emit here
     } catch (error) {
       console.error('JDoodle API error:', error?.response?.data || error.message);
       toast.error('Code execution failed');
@@ -193,6 +248,7 @@ const EditorPage = () => {
         error?.response?.data?.error ||
         'An error occurred while executing your code.';
       setOutput(errOutput);
+      // Backend will now handle broadcasting OUTPUT_CHANGE for errors, so no explicit emit here
     }
   };
 
@@ -275,6 +331,8 @@ const EditorPage = () => {
             fontFamily: 'monospace',
             backgroundColor: '#1e1e1e',
             color: '#ffffff',
+            // Add scrollbar for the CodeMirror editor if content overflows
+            overflow: 'auto',
           }}
         />
 
@@ -283,7 +341,7 @@ const EditorPage = () => {
           <textarea
             placeholder="Enter custom input here (stdin)..."
             value={userInput}
-            onChange={(e) => setUserInput(e.target.value)}
+            onChange={handleUserInput}
             style={{
               flex: 1,
               height: '150px',
@@ -295,6 +353,7 @@ const EditorPage = () => {
               border: '1px solid #555',
               borderRadius: '4px',
               resize: 'none',
+              overflow: 'auto', // Added for scrollbar
             }}
           />
           <textarea
@@ -312,6 +371,7 @@ const EditorPage = () => {
               border: '1px solid #333',
               borderRadius: '4px',
               resize: 'none',
+              overflow: 'auto', // Added for scrollbar
             }}
           />
         </div>
